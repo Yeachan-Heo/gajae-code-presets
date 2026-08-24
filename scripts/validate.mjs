@@ -64,12 +64,36 @@ function compareSemver(left, right) {
   return 0;
 }
 function selectorBase(selector) { return selector.replace(/:(minimal|low|medium|high|xhigh|max)$/, ""); }
+function gitShowJson(base, filename) {
+  const result = spawnSync("git", ["show", `${base}:${filename}`], { cwd: ROOT, encoding: "utf8" });
+  if (result.status !== 0) fail(`Cannot read trusted base file ${filename} at ${base}`);
+  return JSON.parse(result.stdout);
+}
+function validateKeyTransition(base, keyId, priorKeyIds) {
+  const filename = `keys/transitions/${keyId}.json`;
+  if (!fs.existsSync(path.join(ROOT, filename))) fail(`New key ${keyId} lacks a trusted transition record`);
+  const transition = readJson(filename);
+  canonicalFile(filename, transition);
+  const topKeys = Object.keys(transition).sort().join(",");
+  const signedKeys = Object.keys(transition.signed ?? {}).sort().join(",");
+  const signatureKeys = Object.keys(transition.signature ?? {}).sort().join(",");
+  if (topKeys !== "schemaVersion,signature,signed" || signedKeys !== "authorizedAt,fromKeyId,toKeyId,toPublicKeySha256" || signatureKeys !== "algorithm,keyId,value") fail(`Invalid transition shape in ${filename}`);
+  if (transition.schemaVersion !== "1.0.0" || transition.signature.algorithm !== "Ed25519" || transition.signature.keyId !== transition.signed.fromKeyId) fail(`Invalid transition envelope in ${filename}`);
+  if (transition.signed.toKeyId !== keyId || !priorKeyIds.has(transition.signed.fromKeyId)) fail(`Transition for ${keyId} is not authorized by a trusted base key`);
+  const newKeyBytes = canonicalFile(`keys/${keyId}.json`, readJson(`keys/${keyId}.json`));
+  if (transition.signed.toPublicKeySha256 !== sha256Hex(newKeyBytes)) fail(`Transition digest mismatch for key ${keyId}`);
+  const oldKey = gitShowJson(base, `keys/${transition.signed.fromKeyId}.json`);
+  if (oldKey.algorithm !== "Ed25519" || oldKey.status !== "active" || Date.parse(transition.signed.authorizedAt) < Date.parse(oldKey.validFrom)) fail(`Transition signer ${oldKey.keyId} was not trusted at authorization time`);
+  const publicKey = crypto.createPublicKey({ key: oldKey.publicKeyJwk, format: "jwk" });
+  if (!crypto.verify(null, canonicalBytes(transition.signed), publicKey, Buffer.from(transition.signature.value, "base64"))) fail(`Invalid transition signature for key ${keyId}`);
+}
 function validateHistory(revisions) {
   const base = process.env.BASE_REF;
   if (!base) return;
   const result = spawnSync("git", ["diff", "--name-status", `${base}...HEAD`], { cwd: ROOT, encoding: "utf8" });
   if (result.status !== 0) fail(`Cannot compare immutable history with ${base}: ${result.stderr.trim()}`);
-  for (const line of result.stdout.trim().split("\n").filter(Boolean)) {
+  const changes = result.stdout.trim().split("\n").filter(Boolean);
+  for (const line of changes) {
     const [status, filename] = line.split("\t");
     if (filename.startsWith("revisions/") && status !== "A") fail(`Immutable revision changed: ${line}`);
   }
@@ -77,8 +101,16 @@ function validateHistory(revisions) {
   if (listing.status !== 0) fail(`Cannot inspect base revisions at ${base}`);
   const prior = [...listing.stdout.matchAll(/^revisions\/(\d{8})\//gm)].map(match => Number(match[1]));
   const priorMax = prior.length ? Math.max(...prior) : 0;
-  for (const revision of revisions.map(Number).filter(number => number > priorMax)) {
-    if (revision <= priorMax) fail(`New revision is not monotonic: ${revision}`);
+  const addedRevisions = new Set(changes.filter(line => line.startsWith("A\trevisions/")).map(line => Number(line.match(/^A\trevisions\/(\d{8})\//)?.[1])).filter(Number.isFinite));
+  for (const revision of addedRevisions) {
+    if (revision <= priorMax) fail(`New revision is not above prior maximum ${priorMax}: ${revision}`);
+  }
+  const keyListing = spawnSync("git", ["ls-tree", "-r", "--name-only", base, "keys"], { cwd: ROOT, encoding: "utf8" });
+  if (keyListing.status !== 0) fail(`Cannot inspect base keys at ${base}`);
+  const priorKeyIds = new Set([...keyListing.stdout.matchAll(/^keys\/([a-z0-9][a-z0-9._-]*)\.json$/gm)].map(match => match[1]));
+  for (const line of changes) {
+    const match = line.match(/^A\tkeys\/([a-z0-9][a-z0-9._-]*)\.json$/);
+    if (match && priorKeyIds.size > 0) validateKeyTransition(base, match[1], priorKeyIds);
   }
 }
 
@@ -107,14 +139,17 @@ for (const revision of revisions) {
   if ([manifest.signed.revision, snapshot.revision, presets.revision, profiles.revision].some(value => value !== revision)) fail(`Revision mismatch in ${revision}`);
   if (manifest.signed.registryRevision !== Number(revision) || snapshot.registryRevision !== Number(revision)) fail(`Numeric revision mismatch in ${revision}`);
   if (compareSemver(manifest.signed.compatibility.consumerContract.minVersion, manifest.signed.compatibility.consumerContract.maxVersion) > 0) fail(`Invalid compatibility range in ${revision}`);
+  if (manifest.signed.snapshot.path !== paths.snapshot || manifest.signed.contents.presets.path !== paths.presets || manifest.signed.contents.profiles.path !== paths.profiles || snapshot.contents.presets.path !== paths.presets || snapshot.contents.profiles.path !== paths.profiles) fail(`Descriptors escape their owning revision ${revision}`);
   for (const descriptor of [manifest.signed.snapshot, manifest.signed.contents.presets, manifest.signed.contents.profiles, snapshot.contents.presets, snapshot.contents.profiles]) verifyDescriptor(descriptor);
   if (canonicalBytes(manifest.signed.contents).compare(canonicalBytes(snapshot.contents)) !== 0) fail(`Manifest/snapshot contents mismatch in ${revision}`);
   if (canonicalBytes(manifest.signed.compatibility).compare(canonicalBytes(snapshot.compatibility)) !== 0) fail(`Manifest/snapshot compatibility mismatch in ${revision}`);
   if (canonicalBytes(manifest.signed.provenance).compare(canonicalBytes(snapshot.provenance)) !== 0) fail(`Manifest/snapshot provenance mismatch in ${revision}`);
   if (manifest.signed.contents.presets.count !== presets.presets.length || manifest.signed.contents.profiles.count !== profiles.profiles.length) fail(`Content count mismatch in ${revision}`);
   const key = readJson(`keys/${manifest.signature.keyId}.json`);
-  if (key.algorithm !== "Ed25519" || key.status !== "active" || key.revokedAt !== null) fail(`Signing key ${key.keyId} is not active`);
+  if (key.algorithm !== "Ed25519" || !["active", "revoked"].includes(key.status)) fail(`Signing key ${key.keyId} has an invalid state`);
   if (Date.parse(manifest.signed.publishedAt) < Date.parse(key.validFrom)) fail(`Manifest predates signing key ${key.keyId}`);
+  if (key.status === "active" && key.revokedAt !== null) fail(`Active key ${key.keyId} has a revocation time`);
+  if (key.status === "revoked" && (!key.revokedAt || Date.parse(manifest.signed.publishedAt) >= Date.parse(key.revokedAt))) fail(`Manifest ${revision} was not signed before key ${key.keyId} revocation`);
   const publicKey = crypto.createPublicKey({ key: key.publicKeyJwk, format: "jwk" });
   if (!crypto.verify(null, canonicalBytes(manifest.signed), publicKey, Buffer.from(manifest.signature.value, "base64"))) fail(`Invalid manifest signature in ${revision}`);
   uniqueNames(profiles.profiles.map(profile => profile.id), "profile id");
@@ -137,5 +172,7 @@ const latest = readJson("latest.json");
 canonicalFile("latest.json", latest);
 const target = `revisions/${latest.signed.revision}/manifest.json`;
 if (!fs.readFileSync(path.join(ROOT, "latest.json")).equals(fs.readFileSync(path.join(ROOT, target)))) fail(`latest.json is not byte-identical to ${target}`);
+const latestKey = readJson(`keys/${latest.signature.keyId}.json`);
+if (latestKey.status !== "active" || latestKey.revokedAt !== null) fail(`latest.json selects revoked key ${latest.signature.keyId}`);
 validateHistory(revisions);
 process.stdout.write(`Validated ${revisions.length} revision(s); latest is ${latest.signed.revision}.\n`);

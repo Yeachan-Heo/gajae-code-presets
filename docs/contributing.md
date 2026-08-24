@@ -41,6 +41,8 @@ The signer proves that the private key matches the committed public JWK, signs o
 
 Keys under `test/fixtures/` are deterministic, publicly known, and marked **NON-PRODUCTION**. They exist only to test verification failure/success paths and MUST never sign a registry revision.
 
+Adding a production key also requires `keys/transitions/<new-key-id>.json`, signed by a key already trusted on the base branch and binding the canonical SHA-256 digest of the complete new public-key document. A self-signed key addition does not pass validation.
+
 ## Verification and review
 
 Run all gates on the exact proposed head:

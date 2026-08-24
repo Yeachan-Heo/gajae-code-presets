@@ -17,6 +17,7 @@ function args(argv) {
 const options = args(process.argv.slice(2));
 const manifestPath = path.resolve(options.manifest ?? "revisions/00000001/manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+if (manifest.signature?.value !== "") throw new Error("Refusing to overwrite an existing manifest signature");
 const keyPath = path.resolve(options["public-key"] ?? `keys/${manifest.signature.keyId}.json`);
 const keyDocument = JSON.parse(fs.readFileSync(keyPath, "utf8"));
 if (keyDocument.keyId !== manifest.signature.keyId || keyDocument.algorithm !== "Ed25519" || keyDocument.status !== "active") {
