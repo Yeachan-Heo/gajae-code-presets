@@ -1,0 +1,7 @@
+node_modules/
+.gjc/
+*.pem
+*.key
+.env*
+.tmp/
+coverage/

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gajae-code.github.io/gajae-code-presets/schemas/snapshot.v1.schema.json",
+  "title": "Gajae Code preset registry snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "registryRevision", "revision", "compatibility", "provenance", "contents"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "registryRevision": { "type": "integer", "minimum": 1, "maximum": 99999999 },
+    "revision": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "compatibility": { "$ref": "manifest.v1.schema.json#/$defs/compatibility" },
+    "provenance": { "$ref": "manifest.v1.schema.json#/$defs/provenance" },
+    "contents": { "$ref": "manifest.v1.schema.json#/$defs/contents" }
+  }
+}

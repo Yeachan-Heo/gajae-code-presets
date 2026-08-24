@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gajae-code.github.io/gajae-code-presets/schemas/preset.v1.schema.json",
+  "title": "Gajae Code safe model preset set v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "revision", "presets"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "revision": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "presets": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/$defs/preset" } }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 192, "pattern": "^[^\\s\\p{Cc}]+$" },
+    "level": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
+    "cost": {
+      "type": "object", "additionalProperties": false, "required": ["input", "output", "cacheRead", "cacheWrite"],
+      "properties": {
+        "input": { "type": "number", "minimum": 0 }, "output": { "type": "number", "minimum": 0 },
+        "cacheRead": { "type": "number", "minimum": 0 }, "cacheWrite": { "type": "number", "minimum": 0 }
+      }
+    },
+    "compat": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "maxTokensField": { "const": "max_tokens" },
+        "reasoningContentField": { "const": "reasoning_content" },
+        "thinkingFormat": { "const": "zai" },
+        "reasoningEffortMap": {
+          "type": "object", "additionalProperties": false, "minProperties": 1,
+          "properties": {
+            "minimal": { "$ref": "#/$defs/level" }, "low": { "$ref": "#/$defs/level" },
+            "medium": { "$ref": "#/$defs/level" }, "high": { "$ref": "#/$defs/level" },
+            "xhigh": { "$ref": "#/$defs/level" }, "max": { "$ref": "#/$defs/level" }
+          }
+        },
+        "requiresAssistantContentForToolCalls": { "type": "boolean" },
+        "requiresReasoningContentForToolCalls": { "type": "boolean" },
+        "supportsDeveloperRole": { "type": "boolean" },
+        "supportsMultipleSystemMessages": { "type": "boolean" },
+        "supportsReasoningEffort": { "type": "boolean" },
+        "supportsStore": { "type": "boolean" },
+        "supportsToolChoice": { "type": "boolean" },
+        "supportsUsageInStreaming": { "type": "boolean" }
+      }
+    },
+    "thinking": {
+      "type": "object", "additionalProperties": false, "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["anthropic-adaptive", "anthropic-budget-effort", "budget", "effort", "google-level"] },
+        "minLevel": { "$ref": "#/$defs/level" }, "maxLevel": { "$ref": "#/$defs/level" },
+        "defaultLevel": { "$ref": "#/$defs/level" },
+        "levels": { "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": { "$ref": "#/$defs/level" } }
+      }
+    },
+    "longContextPricing": {
+      "type": "object", "additionalProperties": false, "required": ["threshold", "cost"],
+      "properties": { "threshold": { "type": "integer", "minimum": 1 }, "cost": { "$ref": "#/$defs/cost" } }
+    },
+    "preset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "provider", "name", "api", "reasoning", "input", "cost", "contextWindow", "maxTokens"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" }, "provider": { "$ref": "#/$defs/identifier" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\p{Cc}]+$" },
+        "api": { "enum": ["anthropic-messages", "azure-openai-responses", "bedrock-converse-stream", "cursor-agent", "google-gemini-cli", "google-generative-ai", "google-vertex", "ollama-chat", "openai-codex-responses", "openai-completions", "openai-responses"] },
+        "reasoning": { "type": "boolean" },
+        "input": { "type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": { "enum": ["text", "image"] } },
+        "output": { "type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": { "enum": ["text", "image"] } },
+        "cost": { "$ref": "#/$defs/cost" }, "contextWindow": { "type": "integer", "minimum": 1 },
+        "maxTokens": { "type": "integer", "minimum": 1 }, "compat": { "$ref": "#/$defs/compat" },
+        "thinking": { "$ref": "#/$defs/thinking" }, "longContextPricing": { "$ref": "#/$defs/longContextPricing" },
+        "applyPatchToolType": { "const": "freeform" }, "preferWebsockets": { "type": "boolean" },
+        "premiumMultiplier": { "type": "number", "minimum": 0 }, "priority": { "type": "integer", "minimum": 0 },
+        "contextPromotionTarget": { "type": "string", "minLength": 3, "maxLength": 256, "pattern": "^[^\\s\\p{Cc}]+/[^\\s\\p{Cc}]+$" }
+      }
+    }
+  }
+}

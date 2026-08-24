@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gajae-code.github.io/gajae-code-presets/schemas/manifest.v1.schema.json",
+  "title": "Gajae Code preset registry manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "signed", "signature"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "signed": { "$ref": "#/$defs/signed" },
+    "signature": { "$ref": "#/$defs/signature" }
+  },
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$", "maxLength": 32 },
+    "revision": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "path": { "type": "string", "pattern": "^revisions/[0-9]{8}/[a-z]+\\.json$", "maxLength": 128 },
+    "descriptor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "bytes", "count"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" }, "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "count": { "type": "integer", "minimum": 0, "maximum": 100000 }
+      }
+    },
+    "compatibility": {
+      "type": "object", "additionalProperties": false, "required": ["consumerContract"],
+      "properties": { "consumerContract": {
+        "type": "object", "additionalProperties": false, "required": ["minVersion", "maxVersion"],
+        "properties": { "minVersion": { "$ref": "#/$defs/semver" }, "maxVersion": { "$ref": "#/$defs/semver" } }
+      } }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceRepository", "sourceRevision", "sourcePaths", "generatedBy", "generatedAt"],
+      "properties": {
+        "sourceRepository": { "const": "https://github.com/Yeachan-Heo/gajae-code" },
+        "sourceRevision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourcePaths": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "maxLength": 256 } },
+        "generatedBy": { "type": "string", "pattern": "^[A-Za-z0-9._/@-]+$", "maxLength": 128 },
+        "generatedAt": { "type": "string", "format": "date-time", "pattern": "Z$" }
+      }
+    },
+    "contents": {
+      "type": "object", "additionalProperties": false, "required": ["presets", "profiles"],
+      "properties": { "presets": { "$ref": "#/$defs/descriptor" }, "profiles": { "$ref": "#/$defs/descriptor" } }
+    },
+    "signed": {
+      "type": "object", "additionalProperties": false,
+      "required": ["registryRevision", "revision", "publishedAt", "compatibility", "snapshot", "contents", "provenance"],
+      "properties": {
+        "registryRevision": { "type": "integer", "minimum": 1, "maximum": 99999999 },
+        "revision": { "$ref": "#/$defs/revision" },
+        "publishedAt": { "type": "string", "format": "date-time", "pattern": "Z$" },
+        "compatibility": { "$ref": "#/$defs/compatibility" },
+        "snapshot": { "$ref": "#/$defs/descriptor" },
+        "contents": { "$ref": "#/$defs/contents" },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "signature": {
+      "type": "object", "additionalProperties": false, "required": ["algorithm", "keyId", "value"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "keyId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "value": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+      }
+    }
+  }
+}
