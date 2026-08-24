@@ -41,8 +41,8 @@ function uniqueNames(values, label) {
 }
 function scanSafe(value, location = "$") {
   if (typeof value === "string") {
-    if (/https?:\/\//i.test(value) && value !== "https://github.com/Yeachan-Heo/gajae-code") fail(`Unsafe URL at ${location}`);
-    if (/(?:^|[^a-z])(sk-[A-Za-z0-9_-]{12,}|gh[opusr]_[A-Za-z0-9]{12,}|AKIA[0-9A-Z]{16}|Bearer\s+\S+)/i.test(value)) fail(`Possible secret at ${location}`);
+    if (/\b(?:https?|ftp|file|data):/i.test(value) && value !== "https://github.com/Yeachan-Heo/gajae-code") fail(`Unsafe URL at ${location}`);
+    if (/(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-[A-Za-z0-9_-]{12,}|gh[opusr]_[A-Za-z0-9]{12,}|AKIA[0-9A-Z]{16}|Bearer\s+\S+)/i.test(value)) fail(`Possible secret at ${location}`);
     return;
   }
   if (!value || typeof value !== "object") return;

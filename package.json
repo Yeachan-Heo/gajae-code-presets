@@ -12,6 +12,7 @@
     "sign": "node scripts/sign.mjs",
     "validate": "node scripts/validate.mjs",
     "check:reproducible": "node scripts/check-reproducible.mjs",
+    "security:review": "node scripts/security-review.mjs",
     "test": "node --test"
   },
   "devDependencies": {
