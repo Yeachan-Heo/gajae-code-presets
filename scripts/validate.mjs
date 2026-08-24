@@ -96,6 +96,8 @@ function validateHistory(revisions) {
   for (const line of changes) {
     const [status, filename] = line.split("\t");
     if (filename.startsWith("revisions/") && status !== "A") fail(`Immutable revision changed: ${line}`);
+    if (/^keys\/[a-z0-9][a-z0-9._-]*\.json$/.test(filename) && status !== "A") fail(`Immutable public key document changed: ${line}`);
+    if (filename.startsWith("keys/transitions/") && status !== "A") fail(`Immutable key transition changed: ${line}`);
   }
   const listing = spawnSync("git", ["ls-tree", "-r", "--name-only", base, "revisions"], { cwd: ROOT, encoding: "utf8" });
   if (listing.status !== 0) fail(`Cannot inspect base revisions at ${base}`);
@@ -111,6 +113,9 @@ function validateHistory(revisions) {
   for (const line of changes) {
     const match = line.match(/^A\tkeys\/([a-z0-9][a-z0-9._-]*)\.json$/);
     if (match && priorKeyIds.size > 0) validateKeyTransition(base, match[1], priorKeyIds);
+  }
+  for (const keyId of priorKeyIds) {
+    if (fs.existsSync(path.join(ROOT, `keys/transitions/${keyId}.json`))) validateKeyTransition(base, keyId, priorKeyIds);
   }
 }
 
