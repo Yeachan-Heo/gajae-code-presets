@@ -22,6 +22,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Check out attributed upstream source
+        shell: bash
+        run: |
+          source_revision=$(node -p 'JSON.parse(require("fs").readFileSync("latest.json", "utf8")).signed.provenance.sourceRevision')
+          upstream="$RUNNER_TEMP/gajae-code"
+          git init "$upstream"
+          git -C "$upstream" remote add origin https://github.com/Yeachan-Heo/gajae-code.git
+          git -C "$upstream" config core.sparseCheckout true
+          printf '%s\n' packages/ai/src/models.json packages/coding-agent/src/config/model-profiles.ts > "$upstream/.git/info/sparse-checkout"
+          git -C "$upstream" fetch --depth=1 origin "$source_revision"
+          git -C "$upstream" checkout --detach FETCH_HEAD
+          echo "UPSTREAM_SOURCE_ROOT=$upstream" >> "$GITHUB_ENV"
       - run: npm run check:reproducible
       - name: Validate registry and immutable history
         env:
