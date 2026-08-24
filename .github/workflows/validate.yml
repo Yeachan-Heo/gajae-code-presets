@@ -39,7 +39,8 @@ jobs:
       - run: npm run check:reproducible
       - name: Validate registry and immutable history
         env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || format('{0}^', github.sha) }}
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          BASE_COMPARE: ${{ github.event_name == 'pull_request' && 'merge-base' || 'direct' }}
         run: npm run validate
 
   security-review:

@@ -134,7 +134,8 @@ function loadRevocations() {
 function validateHistory(revisions) {
   const base = process.env.BASE_REF;
   if (!base) return;
-  const result = spawnSync("git", ["diff", "--name-status", `${base}...HEAD`], { cwd: ROOT, encoding: "utf8" });
+  const range = process.env.BASE_COMPARE === "direct" ? `${base}..HEAD` : `${base}...HEAD`;
+  const result = spawnSync("git", ["diff", "--name-status", range], { cwd: ROOT, encoding: "utf8" });
   if (result.status !== 0) fail(`Cannot compare immutable history with ${base}: ${result.stderr.trim()}`);
   const changes = result.stdout.trim().split("\n").filter(Boolean);
   for (const line of changes) {
