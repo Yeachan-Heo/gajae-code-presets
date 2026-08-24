@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -55,5 +57,24 @@ test("latest manifest is exact, signed, and digest-bound", () => {
     const bytes = fs.readFileSync(descriptor.path);
     assert.equal(bytes.length, descriptor.bytes);
     assert.equal(sha256Hex(bytes), descriptor.sha256);
+  }
+});
+
+test("validator rejects private or extended key documents", () => {
+  fs.mkdirSync(".tmp", { recursive: true });
+  const directory = fs.mkdtempSync(path.join(".tmp", "key-validation-"));
+  try {
+    for (const entry of ["scripts", "schemas", "keys", "revisions"]) fs.cpSync(entry, path.join(directory, entry), { recursive: true });
+    fs.copyFileSync("latest.json", path.join(directory, "latest.json"));
+    fs.symlinkSync(path.resolve("node_modules"), path.join(directory, "node_modules"), "dir");
+    const keyPath = path.join(directory, "keys/registry-root-2026-01.json");
+    const key = JSON.parse(fs.readFileSync(keyPath, "utf8"));
+    key.publicKeyJwk.d = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    fs.writeFileSync(keyPath, canonicalBytes(key));
+    const result = spawnSync(process.execPath, ["scripts/validate.mjs"], { cwd: directory, encoding: "utf8" });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Invalid public key shape/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 });

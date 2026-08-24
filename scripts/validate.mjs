@@ -69,6 +69,23 @@ function gitShowJson(base, filename) {
   if (result.status !== 0) fail(`Cannot read trusted base file ${filename} at ${base}`);
   return JSON.parse(result.stdout);
 }
+function validateKeyDocument(key, expectedKeyId, label) {
+  const keys = Object.keys(key ?? {}).sort().join(",");
+  const jwkKeys = Object.keys(key?.publicKeyJwk ?? {}).sort().join(",");
+  if (keys !== "algorithm,keyId,publicKeyJwk,replacementKeyId,revokedAt,schemaVersion,status,usage,validFrom" || jwkKeys !== "crv,kty,x") fail(`Invalid public key shape in ${label}`);
+  if (key.schemaVersion !== "1.0.0" || key.keyId !== expectedKeyId || key.algorithm !== "Ed25519" || key.usage !== "registry-manifest" || key.status !== "active" || key.revokedAt !== null || key.replacementKeyId !== null) fail(`Invalid public key contract in ${label}`);
+  if (!Number.isFinite(Date.parse(key.validFrom)) || !key.validFrom.endsWith("Z")) fail(`Invalid key validity time in ${label}`);
+  if (key.publicKeyJwk.kty !== "OKP" || key.publicKeyJwk.crv !== "Ed25519" || !/^[A-Za-z0-9_-]{43}$/.test(key.publicKeyJwk.x) || Buffer.from(key.publicKeyJwk.x, "base64url").length !== 32) fail(`Invalid or private Ed25519 JWK in ${label}`);
+  return key;
+}
+function readKey(keyId) {
+  if (!/^[a-z0-9][a-z0-9._-]{2,63}$/.test(keyId)) fail(`Invalid key id ${keyId}`);
+  const filename = `keys/${keyId}.json`;
+  const key = validateKeyDocument(readJson(filename), keyId, filename);
+  canonicalFile(filename, key);
+  scanSafe(key, `$.keys.${keyId}`);
+  return key;
+}
 function validateKeyTransition(base, keyId, priorKeyIds) {
   const filename = `keys/transitions/${keyId}.json`;
   if (!fs.existsSync(path.join(ROOT, filename))) fail(`New key ${keyId} lacks a trusted transition record`);
@@ -78,11 +95,11 @@ function validateKeyTransition(base, keyId, priorKeyIds) {
   const signedKeys = Object.keys(transition.signed ?? {}).sort().join(",");
   const signatureKeys = Object.keys(transition.signature ?? {}).sort().join(",");
   if (topKeys !== "schemaVersion,signature,signed" || signedKeys !== "authorizedAt,fromKeyId,toKeyId,toPublicKeySha256" || signatureKeys !== "algorithm,keyId,value") fail(`Invalid transition shape in ${filename}`);
-  if (transition.schemaVersion !== "1.0.0" || transition.signature.algorithm !== "Ed25519" || transition.signature.keyId !== transition.signed.fromKeyId) fail(`Invalid transition envelope in ${filename}`);
+  if (transition.schemaVersion !== "1.0.0" || transition.signature.algorithm !== "Ed25519" || transition.signature.keyId !== transition.signed.fromKeyId || !Number.isFinite(Date.parse(transition.signed.authorizedAt)) || !transition.signed.authorizedAt.endsWith("Z")) fail(`Invalid transition envelope in ${filename}`);
   if (transition.signed.toKeyId !== keyId || !priorKeyIds.has(transition.signed.fromKeyId)) fail(`Transition for ${keyId} is not authorized by a trusted base key`);
-  const newKeyBytes = canonicalFile(`keys/${keyId}.json`, readJson(`keys/${keyId}.json`));
+  const newKeyBytes = canonicalFile(`keys/${keyId}.json`, readKey(keyId));
   if (transition.signed.toPublicKeySha256 !== sha256Hex(newKeyBytes)) fail(`Transition digest mismatch for key ${keyId}`);
-  const oldKey = gitShowJson(base, `keys/${transition.signed.fromKeyId}.json`);
+  const oldKey = validateKeyDocument(gitShowJson(base, `keys/${transition.signed.fromKeyId}.json`), transition.signed.fromKeyId, `${base}:keys/${transition.signed.fromKeyId}.json`);
   if (oldKey.algorithm !== "Ed25519" || oldKey.status !== "active" || Date.parse(transition.signed.authorizedAt) < Date.parse(oldKey.validFrom)) fail(`Transition signer ${oldKey.keyId} was not trusted at authorization time`);
   const publicKey = crypto.createPublicKey({ key: oldKey.publicKeyJwk, format: "jwk" });
   if (!crypto.verify(null, canonicalBytes(transition.signed), publicKey, Buffer.from(transition.signature.value, "base64"))) fail(`Invalid transition signature for key ${keyId}`);
@@ -100,8 +117,8 @@ function loadRevocations() {
     if (Object.keys(record).sort().join(",") !== "schemaVersion,signature,signed" || Object.keys(record.signed ?? {}).sort().join(",") !== "keyId,reason,replacementKeyId,revokedAt" || Object.keys(record.signature ?? {}).sort().join(",") !== "algorithm,keyId,value") fail(`Invalid revocation shape in ${filename}`);
     if (record.schemaVersion !== "1.0.0" || record.signed.keyId !== keyId || !["compromise", "retired"].includes(record.signed.reason) || !Number.isFinite(Date.parse(record.signed.revokedAt))) fail(`Invalid revocation payload in ${filename}`);
     if (record.signature.algorithm !== "Ed25519" || record.signature.keyId === keyId) fail(`Revocation ${keyId} must be signed by a different Ed25519 key`);
-    const revokedKey = readJson(`keys/${keyId}.json`);
-    const signerKey = readJson(`keys/${record.signature.keyId}.json`);
+    const revokedKey = readKey(keyId);
+    const signerKey = readKey(record.signature.keyId);
     if (revokedKey.algorithm !== "Ed25519" || signerKey.algorithm !== "Ed25519" || signerKey.status !== "active" || Date.parse(record.signed.revokedAt) < Date.parse(signerKey.validFrom)) fail(`Revocation ${keyId} has an untrusted signer`);
     if (record.signed.replacementKeyId !== null && !fs.existsSync(path.join(ROOT, `keys/${record.signed.replacementKeyId}.json`))) fail(`Revocation ${keyId} names an unknown replacement`);
     const publicKey = crypto.createPublicKey({ key: signerKey.publicKeyJwk, format: "jwk" });
@@ -179,7 +196,7 @@ for (const revision of revisions) {
   if (canonicalBytes(manifest.signed.compatibility).compare(canonicalBytes(snapshot.compatibility)) !== 0) fail(`Manifest/snapshot compatibility mismatch in ${revision}`);
   if (canonicalBytes(manifest.signed.provenance).compare(canonicalBytes(snapshot.provenance)) !== 0) fail(`Manifest/snapshot provenance mismatch in ${revision}`);
   if (manifest.signed.contents.presets.count !== presets.presets.length || manifest.signed.contents.profiles.count !== profiles.profiles.length) fail(`Content count mismatch in ${revision}`);
-  const key = readJson(`keys/${manifest.signature.keyId}.json`);
+  const key = readKey(manifest.signature.keyId);
   if (key.algorithm !== "Ed25519" || key.status !== "active" || key.revokedAt !== null) fail(`Signing key ${key.keyId} has an invalid immutable state`);
   if (Date.parse(manifest.signed.publishedAt) < Date.parse(key.validFrom)) fail(`Manifest predates signing key ${key.keyId}`);
   const revocation = revocations.get(key.keyId);
@@ -206,7 +223,7 @@ const latest = readJson("latest.json");
 canonicalFile("latest.json", latest);
 const target = `revisions/${latest.signed.revision}/manifest.json`;
 if (!fs.readFileSync(path.join(ROOT, "latest.json")).equals(fs.readFileSync(path.join(ROOT, target)))) fail(`latest.json is not byte-identical to ${target}`);
-const latestKey = readJson(`keys/${latest.signature.keyId}.json`);
+const latestKey = readKey(latest.signature.keyId);
 if (latestKey.status !== "active" || latestKey.revokedAt !== null || revocations.has(latest.signature.keyId)) fail(`latest.json selects revoked key ${latest.signature.keyId}`);
 validateHistory(revisions);
 process.stdout.write(`Validated ${revisions.length} revision(s); latest is ${latest.signed.revision}.\n`);
