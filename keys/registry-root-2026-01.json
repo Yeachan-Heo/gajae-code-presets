@@ -1,0 +1,1 @@
+{"algorithm":"Ed25519","keyId":"registry-root-2026-01","publicKeyJwk":{"crv":"Ed25519","kty":"OKP","x":"wDhA_c_hX--M-wcBddFEVSm5gB1tVSjKMZPtlMSlTSQ"},"replacementKeyId":null,"revokedAt":null,"schemaVersion":"1.0.0","status":"active","usage":"registry-manifest","validFrom":"2026-08-24T09:41:42.000Z"}

@@ -1,0 +1,1 @@
+{"algorithm":"Ed25519","keyId":"test-only-ed25519-1","publicKeyJwk":{"crv":"Ed25519","kty":"OKP","x":"A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg"},"warning":"NON-PRODUCTION TEST FIXTURE — NEVER TRUST OR USE THIS KEY FOR REGISTRY DATA"}

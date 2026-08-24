@@ -1,0 +1,23 @@
+{
+  "name": "gajae-code-presets-registry",
+  "version": "0.0.0-private",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.5.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "import:upstream": "node scripts/import-upstream.mjs",
+    "sign": "node scripts/sign.mjs",
+    "validate": "node scripts/validate.mjs",
+    "check:reproducible": "node scripts/check-reproducible.mjs",
+    "security:review": "node scripts/security-review.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "typescript": "5.9.2"
+  }
+}

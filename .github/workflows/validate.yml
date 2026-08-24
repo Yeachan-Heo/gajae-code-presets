@@ -1,0 +1,63 @@
+name: Validate registry
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate exact registry head
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Check out attributed upstream source
+        shell: bash
+        run: |
+          source_revision=$(node -p 'JSON.parse(require("fs").readFileSync("latest.json", "utf8")).signed.provenance.sourceRevision')
+          upstream="$RUNNER_TEMP/gajae-code"
+          git init "$upstream"
+          git -C "$upstream" remote add origin https://github.com/Yeachan-Heo/gajae-code.git
+          git -C "$upstream" config core.sparseCheckout true
+          printf '%s\n' packages/ai/src/models.json packages/coding-agent/src/config/model-profiles.ts > "$upstream/.git/info/sparse-checkout"
+          git -C "$upstream" fetch --depth=1 origin "$source_revision"
+          git -C "$upstream" checkout --detach FETCH_HEAD
+          echo "UPSTREAM_SOURCE_ROOT=$upstream" >> "$GITHUB_ENV"
+      - run: npm run check:reproducible
+      - name: Validate registry and immutable history
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || format('{0}^', github.sha) }}
+        run: npm run validate
+
+  security-review:
+    name: MERGE_READY / adversarial registry security
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Adversarial registry-security approval
+        env:
+          REVIEWED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: npm run security:review
