@@ -106,8 +106,12 @@ jobs:
           case "$TARGET_REF" in
             refs/*) echo "::error::pass a branch name, not a full ref"; exit 1 ;;
           esac
-          if [ "$(git rev-parse "HEAD~1")" != "$(git rev-parse "origin/${TARGET_REF}")" ]; then
-            echo "::error::origin/${TARGET_REF} moved during signing; re-dispatch"
+          # This guard runs BEFORE the commit, so HEAD is still the checked-out
+          # tip. Comparing HEAD~1 would compare the signed revision's parent and
+          # always mismatch.
+          git fetch --quiet origin "$TARGET_REF"
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse FETCH_HEAD)" ]; then
+            echo "::error::${TARGET_REF} moved during signing; re-dispatch"
             exit 1
           fi
           git config user.name "github-actions[bot]"
