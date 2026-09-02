@@ -10,6 +10,26 @@ const GENERATOR = "gajae-code-presets/scripts/import-upstream.mjs@1";
 const SOURCE_REPOSITORY = "https://github.com/Yeachan-Heo/gajae-code";
 const MODEL_SOURCE = "packages/ai/src/models.json";
 const PROFILE_SOURCE = "packages/coding-agent/src/config/model-profiles.ts";
+/**
+ * Transports the published preset contract can express, read from the schema so
+ * the importer can never drift from what consumers accept.
+ *
+ * A consumer parses `presets` as a single array with a closed `api` enum, so one
+ * out-of-contract transport rejects the WHOLE document and the revision is
+ * dropped entirely — not skipped gracefully. Upstream adds transports on its own
+ * schedule (this caught `kiro-codewhisperer-stream`), so a reprojection must omit
+ * models the contract cannot describe rather than publish a document that every
+ * released consumer refuses. Admitting a new transport is a coordinated contract
+ * and consumer release, never an importer side effect.
+ */
+const CONTRACT_APIS = (() => {
+  const schemaPath = path.join(import.meta.dirname, "..", "schemas", "preset.v1.schema.json");
+  const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+  const values = schema?.$defs?.preset?.properties?.api?.enum;
+  if (!Array.isArray(values) || values.length === 0)
+    throw new Error(`Could not read the preset api enum from ${schemaPath}`);
+  return new Set(values);
+})();
 const SAFE_MODEL_FIELDS = [
   "id", "provider", "name", "api", "reasoning", "input", "output", "cost",
   "contextWindow", "maxTokens", "compat", "thinking", "longContextPricing",
@@ -130,6 +150,7 @@ function projectPreset(raw, providerKey, modelKey) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail(`Invalid model ${providerKey}/${modelKey}`);
   if (raw.id !== modelKey) fail(`Model key/id mismatch at ${providerKey}/${modelKey}`);
   if (raw.provider !== providerKey) fail(`Provider key/value mismatch at ${providerKey}/${modelKey}`);
+  if (!CONTRACT_APIS.has(raw.api)) return undefined;
   if (raw.cost && Object.values(raw.cost).some(value => typeof value !== "number" || value < 0)) return undefined;
   const projected = {};
   for (const field of SAFE_MODEL_FIELDS) {
