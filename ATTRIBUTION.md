@@ -1,6 +1,13 @@
 # Attribution
 
-The initial registry snapshot is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code):
+Each registry revision is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code).
+
+Revision `00000002`:
+
+- Source revision: `67fb0355a6c7d124a2dbbfd701228069b991858b`
+- Source timestamp: `2026-09-02T00:38:18.000Z`
+
+Revision `00000001`:
 
 - Source revision: `65d0d2fdae36a4512959a6a8c143339b8ec98c58`
 - Source timestamp: `2026-08-24T09:41:42.000Z`
