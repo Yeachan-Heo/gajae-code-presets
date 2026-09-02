@@ -1,0 +1,107 @@
+name: Sign revision
+
+# Manual-dispatch signer. `REGISTRY_SIGNING_PRIVATE_KEY` already exists as a
+# repository secret but no workflow referenced it, so every revision had to be
+# signed by hand on a maintainer machine. That is the only reason a prepared
+# revision can sit unsigned while consumers keep resolving stale data.
+#
+# Scope is deliberately narrow:
+# - `workflow_dispatch` only; never on push or pull_request, so head code from a
+#   fork or an unreviewed branch can never reach the key.
+# - Runs against a maintainer-named `ref`, which must already be merged or
+#   review-complete; the dispatcher chooses it explicitly.
+# - `npm run sign` proves the private key matches the committed public JWK
+#   before writing, signs only canonical `manifest.signed`, and copies the exact
+#   manifest bytes to `latest.json`.
+# - The key is consumed as an env var by that one step, never echoed, never
+#   written to the workspace, and never passed to any other step.
+# - `npm run validate` runs immediately after signing, so a bad signature fails
+#   here instead of reaching consumers.
+#
+# Signing authority remains a maintainer decision: this workflow requires a
+# human dispatch naming the exact revision and ref.
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Revision directory to sign (e.g. 00000002)"
+        required: true
+        type: string
+      ref:
+        description: "Branch or SHA holding the unsigned revision"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sign-registry
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    name: Sign and publish revision
+    runs-on: ubuntu-latest
+    environment: registry-signing
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Reject a revision that is already signed
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          manifest="revisions/${REVISION}/manifest.json"
+          test -f "$manifest" || { echo "::error::$manifest does not exist"; exit 1; }
+          signature=$(node -p "JSON.parse(require('fs').readFileSync('$manifest','utf8')).signature.value")
+          if [ -n "$signature" ]; then
+            echo "::error::$manifest is already signed; revisions are immutable"
+            exit 1
+          fi
+      - name: Sign the manifest and advance latest.json
+        env:
+          REGISTRY_SIGNING_PRIVATE_KEY: ${{ secrets.REGISTRY_SIGNING_PRIVATE_KEY }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          test -n "$REGISTRY_SIGNING_PRIVATE_KEY" || { echo "::error::signing secret is unset"; exit 1; }
+          npm run sign -- \
+            --manifest "revisions/${REVISION}/manifest.json" \
+            --public-key keys/registry-root-2026-01.json \
+            --latest latest.json
+      - name: Verify with public keys only
+        env:
+          BASE_REF: ${{ inputs.ref }}
+          BASE_COMPARE: direct
+        run: |
+          set -euo pipefail
+          npm test
+          npm run validate
+      - name: Commit the signature
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "::error::signing produced no change"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "revisions/${REVISION}/manifest.json" latest.json
+          git commit --message "data: sign registry revision ${REVISION}
+
+          Signed in CI from the repository signing secret. latest.json now
+          points at this revision's exact manifest bytes."
+          git push origin "HEAD:${GITHUB_REF_NAME}"
