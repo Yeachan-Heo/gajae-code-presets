@@ -91,10 +91,23 @@ jobs:
       - name: Commit the signature
         env:
           REVISION: ${{ inputs.revision }}
+          TARGET_REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
           if git diff --quiet; then
             echo "::error::signing produced no change"
+            exit 1
+          fi
+          # The dispatch ref carries this workflow file (it must exist on the
+          # dispatched ref), which is not necessarily the branch holding the
+          # unsigned revision. Push to the branch that was checked out and
+          # signed -- never to GITHUB_REF_NAME, which would land the signature
+          # on the dispatch branch and bypass review of the data change.
+          case "$TARGET_REF" in
+            refs/*) echo "::error::pass a branch name, not a full ref"; exit 1 ;;
+          esac
+          if [ "$(git rev-parse "HEAD~1")" != "$(git rev-parse "origin/${TARGET_REF}")" ]; then
+            echo "::error::origin/${TARGET_REF} moved during signing; re-dispatch"
             exit 1
           fi
           git config user.name "github-actions[bot]"
@@ -104,4 +117,4 @@ jobs:
 
           Signed in CI from the repository signing secret. latest.json now
           points at this revision's exact manifest bytes."
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:refs/heads/${TARGET_REF}"
