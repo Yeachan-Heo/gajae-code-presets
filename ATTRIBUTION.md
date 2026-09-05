@@ -2,6 +2,12 @@
 
 Each registry revision is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code).
 
+Revision `00000003`:
+
+- Source revision: `bf6a86b3107a2a2a21dfed38edb617bedd280c27`
+- Source timestamp: `2026-09-05T06:27:11.000Z`
+- Adds the GPT-6 Astra Codex catalog entry and five ASTRA tier/Fable combination profiles while preserving the previous 58 profiles.
+
 Revision `00000002`:
 
 - Source revision: `67fb0355a6c7d124a2dbbfd701228069b991858b`
