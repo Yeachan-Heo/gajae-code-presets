@@ -2,6 +2,12 @@
 
 Each registry revision is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code).
 
+Revision `00000004`:
+
+- Source revision: `69e39df425b182694000bfcc81162c2bffb071c6` (gajae-code #5995, after #5993)
+- Source timestamp: `2026-09-26T12:26:53.000Z`
+- Updates Opus profiles to 5.5 and imports the intervening GPT-6 model/profile changes.
+
 Revision `00000003`:
 
 - Source revision: `bf6a86b3107a2a2a21dfed38edb617bedd280c27`
