@@ -64,7 +64,7 @@
       "properties": {
         "algorithm": { "const": "Ed25519" },
         "keyId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
-        "value": { "type": "string", "pattern": "^([A-Za-z0-9+/]{86}==)?$" }
+        "value": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
       }
     }
   }

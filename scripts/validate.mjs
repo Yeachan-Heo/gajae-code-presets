@@ -202,10 +202,8 @@ for (const revision of revisions) {
   if (Date.parse(manifest.signed.publishedAt) < Date.parse(key.validFrom)) fail(`Manifest predates signing key ${key.keyId}`);
   const revocation = revocations.get(key.keyId);
   if (revocation && Date.parse(manifest.signed.publishedAt) >= Date.parse(revocation.signed.revokedAt)) fail(`Manifest ${revision} was not signed before key ${key.keyId} revocation`);
-  if (manifest.signature.value) {
-    const publicKey = crypto.createPublicKey({ key: key.publicKeyJwk, format: "jwk" });
-    if (!crypto.verify(null, canonicalBytes(manifest.signed), publicKey, Buffer.from(manifest.signature.value, "base64"))) fail(`Invalid manifest signature in ${revision}`);
-  }
+  const publicKey = crypto.createPublicKey({ key: key.publicKeyJwk, format: "jwk" });
+  if (!crypto.verify(null, canonicalBytes(manifest.signed), publicKey, Buffer.from(manifest.signature.value, "base64"))) fail(`Invalid manifest signature in ${revision}`);
   uniqueNames(profiles.profiles.map(profile => profile.id), "profile id");
   uniqueNames(profiles.dynamicProviders, "dynamic provider id");
   uniqueNames(presets.presets.map(preset => `${preset.provider}/${preset.id}`), "preset selector");
