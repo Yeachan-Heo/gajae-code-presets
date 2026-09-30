@@ -4,9 +4,9 @@ Each registry revision is a deterministic, safety-filtered projection of model m
 
 Revision `00000005`:
 
-- Source revision: `015c3a0aef0f5e791863d29ab61b6deb609771f5` (gajae-code #6152, after #6111 and #6147)
-- Source timestamp: `2026-09-30T06:02:13.000Z`
-- Adds the Claude Sonnet 5.5 and GPT-6.1-Sol catalog entries and the `codex-sol61` profile, and moves the `claude-opus` and `claude-fable` executors and the `opus-codex` planner from Sonnet 5 to Sonnet 5.5.
+- Source revision: `1e5acb361438ff760333beff363d41f18bfbadfa` (gajae-code #6163, `feat/codex-pro-sol61`, on top of `dev` 467f6c1)
+- Source timestamp: `2026-09-30T12:24:15.000Z`
+- Adds the Claude Sonnet 5.5 and GPT-6.1-Sol catalog entries. Moves every built-in profile role from `gpt-6-sol` to `gpt-6.1-sol` at the same effort and from Sonnet 5 to Sonnet 5.5. Profile count stays at 63: the upstream `codex-sol61` profile is removed because `codex-pro` now carries GPT-6.1 Sol.
 
 Revision `00000004`:
 
