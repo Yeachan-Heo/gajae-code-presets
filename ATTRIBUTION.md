@@ -2,6 +2,12 @@
 
 Each registry revision is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code).
 
+Revision `00000005`:
+
+- Source revision: `1befc36d39d6f537c6b90049ae957bab77fc254a`
+- Source timestamp: `2026-09-30T04:59:54.000Z`
+- Adds the Codex Sol 6.1 model catalog entry and `codex-sol61` profile.
+
 Revision `00000004`:
 
 - Source revision: `69e39df425b182694000bfcc81162c2bffb071c6` (gajae-code #5995, after #5993)
