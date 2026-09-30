@@ -2,6 +2,12 @@
 
 Each registry revision is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code).
 
+Revision `00000005`:
+
+- Source revision: `015c3a0aef0f5e791863d29ab61b6deb609771f5` (gajae-code #6152, after #6111 and #6147)
+- Source timestamp: `2026-09-30T06:02:13.000Z`
+- Adds the Claude Sonnet 5.5 and GPT-6.1-Sol catalog entries and the `codex-sol61` profile, and moves the `claude-opus` and `claude-fable` executors and the `opus-codex` planner from Sonnet 5 to Sonnet 5.5.
+
 Revision `00000004`:
 
 - Source revision: `69e39df425b182694000bfcc81162c2bffb071c6` (gajae-code #5995, after #5993)
