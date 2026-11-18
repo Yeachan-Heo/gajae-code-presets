@@ -2,6 +2,12 @@
 
 Each registry revision is a deterministic, safety-filtered projection of model metadata and built-in model profiles from [Yeachan-Heo/gajae-code](https://github.com/Yeachan-Heo/gajae-code).
 
+Revision `00000006`:
+
+- Source revision: `b017b524fdbb20184a68397943724f08b2126627` (gajae-code `dev`, merge of #7862)
+- Source timestamp: `2026-11-18T03:37:40.000Z`
+- Adds the GPT-6.2 Astra and GPT-6.2 Sol catalog entries and imports the intervening upstream catalog changes. Built-in profile roles on `gpt-6-astra` move to `gpt-6.2-astra` and roles on `gpt-6.1-sol` move to `gpt-6.2-sol`, each at the same effort. Profile count stays at 63.
+
 Revision `00000005`:
 
 - Source revision: `7f1b3c7ec416382371577c21cfc09e75be5725d9` (gajae-code #6163, `feat/codex-pro-sol61`, on top of `dev` 467f6c1)
